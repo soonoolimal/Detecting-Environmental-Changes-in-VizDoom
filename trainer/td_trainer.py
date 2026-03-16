@@ -87,15 +87,15 @@ class TDTrainer(BaseTrainer):
 
                     # Per-batch predicted class distribution
                     self.writer.add_scalars("TD_Val/pred_class_dist", {
-                        "vanilla":     int((valid_preds == 0).sum()),
-                        "obs_shifted": int((valid_preds == 1).sum()),
+                        "vanilla": int((valid_preds == 0).sum()),
+                        "ob_shifted": int((valid_preds == 1).sum()),
                         "rew_shifted": int((valid_preds == 2).sum()),
                     }, global_step)
 
                     # Per-batch true class distribution
                     self.writer.add_scalars("TD_Val/true_class_dist", {
-                        "vanilla":     int((valid_labels_batch == 0).sum()),
-                        "obs_shifted": int((valid_labels_batch == 1).sum()),
+                        "vanilla": int((valid_labels_batch == 0).sum()),
+                        "ob_shifted": int((valid_labels_batch == 1).sum()),
                         "rew_shifted": int((valid_labels_batch == 2).sum()),
                     }, global_step)
 
@@ -116,7 +116,7 @@ class TDTrainer(BaseTrainer):
         self.writer.add_scalar("TD/val_acc", self._last_val_acc, epoch)
 
     def test(self, test_loader, num_classes: int = 3):
-        """Test loop
+        """Test Loop
         
         Computes loss, overall accuracy, per-class accuracy, and confusion matrix.
         Logs results to TensorBoard and stdout.
@@ -183,7 +183,7 @@ class TDTrainer(BaseTrainer):
             )
 
         # Stdout
-        print(f"[Test] CE: {test_loss:.4f}  ACC: {test_acc:.2f}%")
+        print(f"[Test] ACC: {test_acc:.2f}%  CE: {test_loss:.4f}")
         for name, acc in per_class_acc.items():
             print(f"  {name}: {acc:.2f}%")
         print("Confusion matrix (row=true, col=pred):")
