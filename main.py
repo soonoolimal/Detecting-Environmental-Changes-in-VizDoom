@@ -75,8 +75,8 @@ def add_args():
     p.add_argument("--dt_patience", type=int, default=10)
     p.add_argument("--scale_grad", action="store_true", default=False)
     p.add_argument("--ac_loss_w", type=float, default=1.0)
-    p.add_argument("--rtg_loss_w", type=float, default=0.1)
-    p.add_argument("--ob_loss_w", type=float, default=0.1)
+    p.add_argument("--rtg_loss_w", type=float, default=1.0)
+    p.add_argument("--ob_loss_w", type=float, default=0.5)
 
     # Task Detector training
     p.add_argument("--td_epochs", type=int, default=20)
