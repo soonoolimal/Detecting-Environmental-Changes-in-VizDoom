@@ -44,7 +44,6 @@ class TaskDetector(nn.Module):
             nn.GELU(),
         )
         self.proj_rtg = nn.Sequential(
-            nn.LayerNorm(1),
             nn.Linear(1, proj_dim),
             nn.GELU(),
         )

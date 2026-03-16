@@ -74,6 +74,10 @@ class DTTrainer(BaseTrainer):
             if T >= 2:
                 pred_rtg = rtg_preds[:, :-1, :]
                 targ_rtg = returns_to_go[:, 1:, :].detach()
+                # Normalize by batch std to stabilize scale
+                rtg_std = targ_rtg.std().clamp(min=1.0)
+                pred_rtg = pred_rtg / rtg_std
+                targ_rtg = targ_rtg / rtg_std
                 valid_next = mask[:, 1:].bool()
                 loss_rtg = (
                     (pred_rtg - targ_rtg).pow(2).sum(dim=-1)[valid_next].mean()

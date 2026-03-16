@@ -49,6 +49,7 @@ def load_dataset(data_path: str, label: int, gamma: float = 1.0) -> H5Dataset:
         ep_len = hf.attrs.get("timeout").item()
         ac_dim = hf.attrs.get("ac_dim").item()
         n_actions = hf.attrs.get("n_actions").item()
+    
     total_envsteps = rewards.shape[0]
     
     assert num_episodes * ep_len == total_envsteps, (

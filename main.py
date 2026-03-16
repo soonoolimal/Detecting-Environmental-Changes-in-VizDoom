@@ -2,7 +2,6 @@ import os
 import argparse
 
 import torch
-import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 
 from load import h5_dataset as h5ds
@@ -253,52 +252,7 @@ def main():
         num_workers=args.td_num_workers,
     )
 
-    td.eval()
-    total_loss, total_correct, total_valid_steps, steps = 0.0, 0, 0, 0
-    with torch.no_grad():
-        for batch_idx, batch in enumerate(td_test_loader):
-            observations = batch["observations"].to(device)
-            actions = batch["actions"].to(device).long()
-            returns_to_go = batch["returns_to_go"].to(device)
-            timesteps = batch["timesteps"].to(device)
-            mask = batch["mask"].to(device).long()
-            labels = batch["labels"].to(device).long()
-
-            logits = td(
-                observations=observations,
-                actions=actions,
-                returns_to_go=returns_to_go,
-                timesteps=timesteps,
-                mask=mask,
-            )  # (B,T,num_classes)
-
-            valid = mask.bool()
-            total_loss += float(F.cross_entropy(logits[valid], labels[valid]))
-            preds = logits.argmax(dim=-1)  # (B,T)
-            total_correct += int((preds[valid] == labels[valid]).sum())
-            total_valid_steps += int(valid.sum())
-            steps += 1
-
-            # Per-Batch Logging
-            # 1. Timestep-level class distribution (valid timesteps only)
-            valid_preds = preds[valid]
-            counts = {
-                "vanilla":     int((valid_preds == 0).sum()),
-                "obs_shifted": int((valid_preds == 1).sum()),
-                "rew_shifted": int((valid_preds == 2).sum()),
-            }
-            writer.add_scalars("TD_Test/pred_class_dist", counts, batch_idx)
-
-            # 2. Shift flag for this batch
-            shift_flag = TaskDetector.detect_shift(logits, mask, omega=args.omega)
-            writer.add_scalar("TD_Test/shift_flag", int(shift_flag), batch_idx)
-
-    n = max(steps, 1)
-    acc = total_correct / max(total_valid_steps, 1) * 100
-    print(f"[Test] CE: {total_loss / n:.4f}  ACC: {acc:.2f}%")
-
-    writer.add_scalar("TDTrainer/test_loss", total_loss / n)
-    writer.add_scalar("TDTrainer/test_accuracy", acc)
+    td_trainer.test(td_test_loader, num_classes=args.num_classes)
     writer.close()
 
 
