@@ -24,3 +24,5 @@ _vizdoom.ini
 *.pt
 *.pth
 *.ckpt
+
+debug.py
