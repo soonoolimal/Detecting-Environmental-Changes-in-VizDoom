@@ -50,15 +50,15 @@ def add_args():
 
     # AutoEncoder Dataloader
     p.add_argument("--ae_batch_size", type=int, default=128)
-    p.add_argument("--ae_num_workers", type=int, default=4)
+    p.add_argument("--ae_num_workers", type=int, default=0)
 
     # Decision Transformer Dataloader
     p.add_argument("--dt_batch_size", type=int, default=32)
-    p.add_argument("--dt_num_workers", type=int, default=4)
+    p.add_argument("--dt_num_workers", type=int, default=0)
 
     # Task Detector Dataloader
     p.add_argument("--td_batch_size", type=int, default=64)
-    p.add_argument("--td_num_workers", type=int, default=4)
+    p.add_argument("--td_num_workers", type=int, default=0)
 
     # AutoEncoder Training
     p.add_argument("--ae_epochs", type=int, default=20)

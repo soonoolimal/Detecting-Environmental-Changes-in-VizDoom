@@ -12,7 +12,7 @@ def make_dt_dataloader(
     seq_len: int,
     batch_size: int = 64,
     shuffle: bool = True,
-    num_workers: int = 4,
+    num_workers: int = 0,
 ):
     ds = DTDataset(
         observations=dataset.observations,
@@ -39,7 +39,7 @@ def make_td_dataloader(
     seq_len: int,
     batch_size: int = 64,
     shuffle: bool = True,
-    num_workers: int = 4,
+    num_workers: int = 0,
 ):
     ds = ConcatDataset([
         TDDataset(
@@ -69,7 +69,7 @@ def make_ae_dataloader(
     observations: np.ndarray,
     batch_size: int = 128,
     shuffle: bool = True,
-    num_workers: int = 4,
+    num_workers: int = 0,
 ):
     ds = AEDataset(observations)
     return DataLoader(
