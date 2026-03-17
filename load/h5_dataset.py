@@ -110,36 +110,6 @@ def load_dataset(data_path: str, label: int, gamma: float = 1.0) -> H5Dataset:
     )
 
 
-def merge_dataset(datasets: List[H5Dataset]) -> H5Dataset:
-    """
-    Concatenate multiple H5Datasets into one along the episode axis.
-    All datasets must share the same ep_len and ac_dim.
-    """
-    assert all(ds.ep_len == datasets[0].ep_len for ds in datasets), "ep_len mismatch"
-    assert all(ds.ac_dim == datasets[0].ac_dim for ds in datasets), "ac_dim mismatch"
-    
-    offset = 0
-    done_idxs_list = []
-    for ds in datasets:
-        done_idxs_list.append(ds.done_idxs + offset)
-        offset += ds.observations.shape[0]
-    
-    assert all(ds.n_actions == datasets[0].n_actions for ds in datasets), "n_actions mismatch"
-
-    return H5Dataset(
-        observations = np.concatenate([ds.observations for ds in datasets], axis=0),
-        actions = np.concatenate([ds.actions for ds in datasets], axis=0),
-        rewards = np.concatenate([ds.rewards for ds in datasets], axis=0),
-        returns_to_go = np.concatenate([ds.returns_to_go for ds in datasets], axis=0),
-        done_idxs = np.concatenate(done_idxs_list, axis=0),
-        timesteps = np.concatenate([ds.timesteps for ds in datasets], axis=0),
-        ep_len = datasets[0].ep_len,
-        num_episodes = sum(ds.num_episodes for ds in datasets),
-        ac_dim = datasets[0].ac_dim,
-        n_actions = datasets[0].n_actions,
-        label = np.concatenate([ds.label for ds in datasets], axis=0),
-    )
-
 
 def split_dataset(
     dataset: H5Dataset,

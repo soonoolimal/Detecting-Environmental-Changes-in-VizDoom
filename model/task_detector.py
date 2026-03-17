@@ -8,12 +8,12 @@ class TaskDetector(nn.Module):
     """
     Transfer learning wrapper on top of pretrained DT.
     
-    1. Runs frozen DT to get:
-        - ob_preds:  (B,T,H)
-        - rtg_preds: (B,T,1)
-    2. Projects ob_preds and rtg_preds.
-    3. Predicts 3-class task logits e_t:
-        e_t = Classifier(z_rtg_preds, z_ob_preds)
+    1. Runs frozen DT encoder to get:
+        - ob_enc:    (B,T,H), observation encoding
+    2. Runs frozen DT to get:
+        - rtg_preds: (B,T,1), predicted returns
+    3. Projects ob_enc and rtg_preds, then predicts 3-class task logits:
+        e_t = Classifier(z_ob_enc, z_rtg_preds)
             where class 0: vanilla, 1: observation-shifted, 2: reward-shifted
     """
     def __init__(
@@ -87,11 +87,14 @@ class TaskDetector(nn.Module):
 
         Returns:
             logits: (B,T,num_classes)
+            
+        Note:
+            ob_enc is obtained directly from self.dt.encoder (frozen, no_grad).
+            rtg_preds is obtained from DT forward (frozen, no_grad via train() override).
         """
         # self.dt is frozen (requires_grad=False) and permanently kept in eval()
         # via train() override, so torch.no_grad() is redundant here
-        # with torch.no_grad():
-        rtg_preds, ob_preds, _, _ob_enc = self.dt(
+        rtg_preds, _ = self.dt(
             observations=observations,
             actions=actions,
             rewards=torch.zeros_like(returns_to_go),  # dummies
@@ -101,17 +104,23 @@ class TaskDetector(nn.Module):
             **dt_kwargs,
         )
 
-        if ob_preds.size(-1) != self.ob_pred_dim:
-            raise ValueError(
-                f"Expected `ob_preds` last dim {self.ob_pred_dim}, "
-                f"got {ob_preds.size(-1)}"
-            )
         if rtg_preds.size(-1) != 1:
             raise ValueError(
                 f"Expected `rtg_preds` last dim 1, got {rtg_preds.size(-1)}"
             )
 
-        z_ob = self.proj_ob(ob_preds)     # (B,T,P)
+        # ob_enc is not exposed from DT forward;
+        # use DT's internal encoder directly for observation features
+        with torch.no_grad():
+            ob_enc = self.dt.encoder(observations)  # (B,T,H)
+
+        if ob_enc.size(-1) != self.ob_pred_dim:
+            raise ValueError(
+                f"Expected `ob_enc` last dim {self.ob_pred_dim}, "
+                f"got {ob_enc.size(-1)}"
+            )
+
+        z_ob = self.proj_ob(ob_enc)       # (B,T,P)
         z_rtg = self.proj_rtg(rtg_preds)  # (B,T,P)
         
         logits = self.task_classifier(

@@ -17,16 +17,14 @@ class DTTrainer(BaseTrainer):
         scale_grad: bool,
         ac_loss_w: float,
         rtg_loss_w: float,
-        ob_loss_w: float,
         **kwargs,
     ):
         super().__init__(model, device, ckpt_name="best_dt.pt", **kwargs)
         
-        self._last_val_metrics = {"ac_ce": 0.0, "rtg_mse": 0.0, "ob_mse": 0.0, "ac_acc": 0.0}
+        self._last_val_metrics = {"ac_ce": 0.0, "rtg_mse": 0.0, "ac_acc": 0.0}
         
         self.ac_loss_w = ac_loss_w
         self.rtg_loss_w = rtg_loss_w
-        self.ob_loss_w = ob_loss_w
         
         self.scale_grad = scale_grad
         self.scaler = GradScaler(self.device.type, enabled=scale_grad)
@@ -54,7 +52,7 @@ class DTTrainer(BaseTrainer):
         B, T = actions.shape
         
         with autocast(self.device.type, enabled=self.scale_grad):
-            rtg_preds, ob_preds, ac_logits, ob_enc = self.model(
+            rtg_preds, ac_logits = self.model(
                 observations=observations,
                 actions=actions,
                 rewards=rewards,
@@ -65,7 +63,7 @@ class DTTrainer(BaseTrainer):
 
             # Action Loss: CE (Discrete)
             logits_flat = ac_logits.reshape(B * T, -1)  # (BT,num_actions)
-            actions_flat = actions.reshape(B * T)       # (BT,)
+            actions_flat = actions.reshape(B * T)        # (BT,)
             valid_flat = valid.reshape(B * T)
             loss_ac = F.cross_entropy(logits_flat[valid_flat], actions_flat[valid_flat])
 
@@ -74,7 +72,7 @@ class DTTrainer(BaseTrainer):
             if T >= 2:
                 pred_rtg = rtg_preds[:, :-1, :]
                 targ_rtg = returns_to_go[:, 1:, :].detach()
-                rtg_std = targ_rtg.std().clamp(min=1.0) # for normalization within batch
+                rtg_std = targ_rtg.std().clamp(min=1.0)  # for normalization within batch
                 pred_rtg = pred_rtg / rtg_std
                 targ_rtg = targ_rtg / rtg_std
                 valid_next = mask[:, 1:].bool()
@@ -84,26 +82,12 @@ class DTTrainer(BaseTrainer):
             else:
                 loss_rtg = torch.zeros((), device=self.device)
 
-            # Observation Loss: MSE
-            # predict enc(o_{t+1}) from h(a_t)
-            # no duplicate encoder call; ob_enc reused from forward()
-            # no torch.no_grad(); ob_loss flows through encoder to learn observation dynamics
-            if T >= 2:
-                targ_ob = ob_enc[:, 1:, :]
-                pred_ob = ob_preds[:, :-1, :]
-                valid_next = mask[:, 1:].bool()
-                loss_ob = (
-                    (pred_ob - targ_ob).pow(2).sum(dim=-1)[valid_next].mean()
-                )
-            else:
-                loss_ob = torch.zeros((), device=self.device)
+            loss = self.ac_loss_w * loss_ac + self.rtg_loss_w * loss_rtg
 
-            loss = self.ac_loss_w * loss_ac + self.rtg_loss_w * loss_rtg + self.ob_loss_w * loss_ob
-
-        return loss, loss_ac, loss_rtg, loss_ob, ac_logits, actions, valid
+        return loss, loss_ac, loss_rtg, ac_logits, actions, valid
 
     def train_step(self, batch) -> torch.Tensor:
-        loss, _, _, _, _, _, _ = self._compute_losses(batch)
+        loss, _, _, _, _, _ = self._compute_losses(batch)
 
         self.optimizer.zero_grad(set_to_none=True)
         self.scaler.scale(loss).backward()
@@ -117,17 +101,16 @@ class DTTrainer(BaseTrainer):
         return loss
 
     def _eval(self, valid_loader, epoch: int) -> float:
-        total_loss = total_ac = total_rtg = total_ob = 0.0
+        total_loss = total_ac = total_rtg = 0.0
         total_correct, total_valid_steps = 0, 0
         steps = 0
         with torch.no_grad():
             pbar = tqdm(valid_loader, total=len(valid_loader), leave=False, desc="[Eval DT]")
             for batch in pbar:
-                loss, loss_ac, loss_rtg, loss_ob, ac_logits, actions, valid = self._compute_losses(batch)
+                loss, loss_ac, loss_rtg, ac_logits, actions, valid = self._compute_losses(batch)
                 total_loss += float(loss)
                 total_ac += float(loss_ac)
                 total_rtg += float(loss_rtg)
-                total_ob += float(loss_ob)
                 preds = ac_logits.argmax(dim=-1)  # (B,T)
                 total_correct += int((preds[valid] == actions[valid]).sum())
                 total_valid_steps += int(valid.sum())
@@ -138,14 +121,12 @@ class DTTrainer(BaseTrainer):
         self._last_val_metrics = {
             "ac_ce": total_ac / n,
             "rtg_mse": total_rtg / n,
-            "ob_mse": total_ob / n,
             "ac_acc": acc,
         }
         print(
             f"val_ac_ce={self._last_val_metrics['ac_ce']:.4f}  "
             f"val_ac_acc={acc:.2f}%  "
-            f"val_rtg_mse={self._last_val_metrics['rtg_mse']:.4f}  "
-            f"val_ob_mse={self._last_val_metrics['ob_mse']:.4f}"
+            f"val_rtg_mse={self._last_val_metrics['rtg_mse']:.4f}"
         )
         return total_loss / n
 
@@ -156,4 +137,3 @@ class DTTrainer(BaseTrainer):
         self.writer.add_scalar("DT/val_ac_ce", self._last_val_metrics["ac_ce"], epoch)
         self.writer.add_scalar("DT/val_ac_acc", self._last_val_metrics["ac_acc"], epoch)
         self.writer.add_scalar("DT/val_rtg_mse", self._last_val_metrics["rtg_mse"], epoch)
-        self.writer.add_scalar("DT/val_ob_mse", self._last_val_metrics["ob_mse"], epoch)

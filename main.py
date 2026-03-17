@@ -1,5 +1,6 @@
 import os
 import gc
+import time
 import argparse
 
 import torch
@@ -68,7 +69,7 @@ def add_args():
     p.add_argument("--ae_patience", type=int, default=7)
     p.add_argument("--ae_denoise_std", type=float, default=0.05)
 
-    # Decision Transformer training
+    # Decision Transformer Training
     p.add_argument("--dt_epochs", type=int, default=30)
     p.add_argument("--dt_lr", type=float, default=3e-5)
     p.add_argument("--dt_weight_decay", type=float, default=1e-4)
@@ -77,9 +78,8 @@ def add_args():
     p.add_argument("--scale_grad", action="store_true", default=False)
     p.add_argument("--ac_loss_w", type=float, default=0.5)
     p.add_argument("--rtg_loss_w", type=float, default=1.0)
-    p.add_argument("--ob_loss_w", type=float, default=2.0)
 
-    # Task Detector training
+    # Task Detector Training
     p.add_argument("--td_epochs", type=int, default=20)
     p.add_argument("--td_lr", type=float, default=3e-4)
     p.add_argument("--td_weight_decay", type=float, default=1e-4)
@@ -90,6 +90,8 @@ def add_args():
 
 
 def main():
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    
     args = add_args().parse_args()
 
     env_name = args.env_name
@@ -99,7 +101,7 @@ def main():
 
     data_dir = os.path.join(os.getcwd(), "data", "datasets")
     model_dir = os.path.join(os.getcwd(), "model", "pretrained", f"{env_name}_{exp_name}")
-    log_dir = os.path.join(os.getcwd(), "runs", f"{env_name}_{exp_name}")
+    log_dir = os.path.join(os.getcwd(), "runs", f"{env_name}_{exp_name}_{timestamp}")
     writer = SummaryWriter(log_dir=log_dir)
 
     # =============
@@ -111,10 +113,7 @@ def main():
     ob_train, ob_valid, ob_test = h5ds.split_dataset(ds_ob, args.train_ratio, args.valid_ratio)
     rew_train, rew_valid, rew_test = h5ds.split_dataset(ds_rew, args.train_ratio, args.valid_ratio)
 
-    ds_train = h5ds.merge_dataset([van_train, ob_train, rew_train])
-    ds_valid = h5ds.merge_dataset([van_valid, ob_valid, rew_valid])
-
-    n_actions = ds_train.n_actions
+    n_actions = ds_van.n_actions
 
     # ==============
     # Build Encoder
@@ -135,12 +134,12 @@ def main():
             ae.load_state_dict(ckpt["model_state_dict"])
         else:
             ae_train_loader = tdl.make_ae_dataloader(
-                ds_train.observations,
+                [van_train, ob_train, rew_train],
                 batch_size=args.ae_batch_size,
                 num_workers=args.ae_num_workers,
             )
             ae_valid_loader = tdl.make_ae_dataloader(
-                ds_valid.observations,
+                [van_valid, ob_valid, rew_valid],
                 batch_size=args.ae_batch_size,
                 num_workers=args.ae_num_workers,
             )
@@ -187,13 +186,13 @@ def main():
         dt.load_state_dict(ckpt["model_state_dict"])
     else:
         dt_train_loader = tdl.make_dt_dataloader(
-            ds_train,
+            [van_train, ob_train, rew_train],
             seq_len=args.seq_len,
             batch_size=args.dt_batch_size,
             num_workers=args.dt_num_workers,
         )
         dt_valid_loader = tdl.make_dt_dataloader(
-            ds_valid,
+            [van_valid, ob_valid, rew_valid],
             seq_len=args.seq_len,
             batch_size=args.dt_batch_size,
             num_workers=args.dt_num_workers,
@@ -211,7 +210,6 @@ def main():
             scale_grad=args.scale_grad,
             ac_loss_w=args.ac_loss_w,
             rtg_loss_w=args.rtg_loss_w,
-            ob_loss_w=args.ob_loss_w,
         )
         dt_trainer.train(dt_train_loader, dt_valid_loader, epochs=args.dt_epochs)
         

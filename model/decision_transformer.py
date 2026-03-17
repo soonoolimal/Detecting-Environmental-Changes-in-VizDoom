@@ -63,7 +63,6 @@ class DecisionTransformer(TrajectoryModel):
         
         # prediction heads
         self.pred_rtg = nn.Linear(hidden_size, 1)
-        self.pred_ob = nn.Linear(hidden_size, hidden_size)
         self.pred_ac = nn.Linear(hidden_size, n_actions)
         
         nn.init.normal_(self.embed_ac.weight, mean=0.0, std=0.02)
@@ -78,10 +77,8 @@ class DecisionTransformer(TrajectoryModel):
             mask:          (B,T), padding mask (for each input sequence, valid: 1, pad: 0)
         
         Returns:
-            rtg_preds: (B,T,1), predicted returns given action tokens for each (same) timestep 
-            ob_preds:  (B,T,H), predicted observations given action tokens for each (same) timestep 
-            ac_logits: (B,T,ac_dim), predicted action logits given observation tokens for each (next) timestep
-            ob_enc:    (B,T,H), encoded observations (reused for ob_loss target in trainer)
+            rtg_preds: (B,T,1), predicted returns given action tokens for each timestep
+            ac_logits: (B,T,ac_dim), predicted action logits given observation tokens for each timestep
         """
         # encode observations
         ob_enc = self.encoder(observations)  # (B,T,H)
@@ -97,9 +94,9 @@ class DecisionTransformer(TrajectoryModel):
         
         # embed each modality with different heads
         rtg_emb = self.embed_rtg(returns_to_go)  # (B,T,H)
-        ob_emb = self.embed_ob(ob_enc)           # (B,T,H)
-        ac_emb = self.embed_ac(actions)          # (B,T,H)
-        time_emb = self.embed_tstep(timesteps)   # (B,T,H)
+        ob_emb = self.embed_ob(ob_enc)            # (B,T,H)
+        ac_emb = self.embed_ac(actions)           # (B,T,H)
+        time_emb = self.embed_tstep(timesteps)    # (B,T,H)
         
         # time embeddings are treated similar to positional embeddings
         rtg_emb = rtg_emb + time_emb
@@ -134,14 +131,13 @@ class DecisionTransformer(TrajectoryModel):
         # recover (0: returns, 1: observations, 2: actions)
         h = rearrange(h, "B (T M) H -> B M T H", M=3)  # (B,3,T,H)
         
-        # auxiliary predictions from action tokens
-        rtg_preds = self.pred_rtg(h[:, 2])  # predict R_{t+1} given h(a_t), (B,T,1)
-        ob_preds = self.pred_ob(h[:, 2])    # predict o_{t+1} given h(a_t), (B,T,H)
+        # predict R_{t+1} given h(a_t)
+        rtg_preds = self.pred_rtg(h[:, 2])  # (B,T,1)
         
-        # logits of discrete actions given observation tokens
-        ac_logits = self.pred_ac(h[:, 1])  # predict a_t given h(o_t), (B,T,ac_dim)
+        # predict a_t given h(o_t)
+        ac_logits = self.pred_ac(h[:, 1])   # (B,T,ac_dim)
         
-        return rtg_preds, ob_preds, ac_logits, ob_enc
+        return rtg_preds, ac_logits
     
     def configure_optimizers(self, lr, weight_decay, betas=(0.9, 0.95)) -> torch.optim.Optimizer:
         """AdamW with GPT-style Parameter Grouping (Decay vs No-Decay)"""
