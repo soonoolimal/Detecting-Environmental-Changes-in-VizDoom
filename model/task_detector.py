@@ -89,12 +89,12 @@ class TaskDetector(nn.Module):
             logits: (B,T,num_classes)
             
         Note:
-            ob_enc is obtained directly from self.dt.encoder (frozen, no_grad).
+            ob_enc is obtained from DT forward return (frozen, no duplicate encoder call).
             rtg_preds is obtained from DT forward (frozen, no_grad via train() override).
         """
         # self.dt is frozen (requires_grad=False) and permanently kept in eval()
         # via train() override, so torch.no_grad() is redundant here
-        rtg_preds, _ = self.dt(
+        rtg_preds, _, ob_enc = self.dt(
             observations=observations,
             actions=actions,
             rewards=torch.zeros_like(returns_to_go),  # dummies
@@ -102,17 +102,12 @@ class TaskDetector(nn.Module):
             timesteps=timesteps,
             mask=mask,
             **dt_kwargs,
-        )
+        )  # ob_enc: (B,T,H), reused from DT forward to avoid duplicate encoder call
 
         if rtg_preds.size(-1) != 1:
             raise ValueError(
                 f"Expected `rtg_preds` last dim 1, got {rtg_preds.size(-1)}"
             )
-
-        # ob_enc is not exposed from DT forward;
-        # use DT's internal encoder directly for observation features
-        with torch.no_grad():
-            ob_enc = self.dt.encoder(observations)  # (B,T,H)
 
         if ob_enc.size(-1) != self.ob_pred_dim:
             raise ValueError(

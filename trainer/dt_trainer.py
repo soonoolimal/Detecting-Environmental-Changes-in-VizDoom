@@ -52,7 +52,7 @@ class DTTrainer(BaseTrainer):
         B, T = actions.shape
         
         with autocast(self.device.type, enabled=self.scale_grad):
-            rtg_preds, ac_logits = self.model(
+            rtg_preds, ac_logits, _ = self.model(
                 observations=observations,
                 actions=actions,
                 rewards=rewards,

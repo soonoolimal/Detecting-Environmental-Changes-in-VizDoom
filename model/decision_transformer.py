@@ -79,6 +79,7 @@ class DecisionTransformer(TrajectoryModel):
         Returns:
             rtg_preds: (B,T,1), predicted returns given action tokens for each timestep
             ac_logits: (B,T,ac_dim), predicted action logits given observation tokens for each timestep
+            ob_enc:    (B,T,H), encoded observations (reused by TaskDetector to avoid duplicate encoder call)
         """
         # encode observations
         ob_enc = self.encoder(observations)  # (B,T,H)
@@ -137,7 +138,7 @@ class DecisionTransformer(TrajectoryModel):
         # predict a_t given h(o_t)
         ac_logits = self.pred_ac(h[:, 1])   # (B,T,ac_dim)
         
-        return rtg_preds, ac_logits
+        return rtg_preds, ac_logits, ob_enc
     
     def configure_optimizers(self, lr, weight_decay, betas=(0.9, 0.95)) -> torch.optim.Optimizer:
         """AdamW with GPT-style Parameter Grouping (Decay vs No-Decay)"""
