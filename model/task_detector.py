@@ -91,7 +91,7 @@ class TaskDetector(nn.Module):
         # self.dt is frozen (requires_grad=False) and permanently kept in eval()
         # via train() override, so torch.no_grad() is redundant here
         # with torch.no_grad():
-        rtg_preds, ob_preds, _ = self.dt(
+        rtg_preds, ob_preds, _, _ob_enc = self.dt(
             observations=observations,
             actions=actions,
             rewards=torch.zeros_like(returns_to_go),  # dummies

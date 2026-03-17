@@ -14,10 +14,10 @@ class DTTrainer(BaseTrainer):
         self,
         model,
         device,
-        scale_grad: bool = False,
-        ac_loss_w: float = 1.0,
-        rtg_loss_w: float = 0.1,
-        ob_loss_w: float = 0.1,
+        scale_grad: bool,
+        ac_loss_w: float,
+        rtg_loss_w: float,
+        ob_loss_w: float,
         **kwargs,
     ):
         super().__init__(model, device, ckpt_name="best_dt.pt", **kwargs)
@@ -54,7 +54,7 @@ class DTTrainer(BaseTrainer):
         B, T = actions.shape
         
         with autocast(self.device.type, enabled=self.scale_grad):
-            rtg_preds, ob_preds, ac_logits = self.model(
+            rtg_preds, ob_preds, ac_logits, ob_enc = self.model(
                 observations=observations,
                 actions=actions,
                 rewards=rewards,
@@ -74,10 +74,12 @@ class DTTrainer(BaseTrainer):
             if T >= 2:
                 pred_rtg = rtg_preds[:, :-1, :]
                 targ_rtg = returns_to_go[:, 1:, :].detach()
-                # Normalize by batch std to stabilize scale
+                
+                # normalize by batch std to stabilize scale
                 rtg_std = targ_rtg.std().clamp(min=1.0)
                 pred_rtg = pred_rtg / rtg_std
                 targ_rtg = targ_rtg / rtg_std
+                
                 valid_next = mask[:, 1:].bool()
                 loss_rtg = (
                     (pred_rtg - targ_rtg).pow(2).sum(dim=-1)[valid_next].mean()
@@ -87,10 +89,10 @@ class DTTrainer(BaseTrainer):
 
             # Observation Loss: MSE
             # predict enc(o_{t+1}) from h(a_t)
+            # no duplicate encoder call; ob_enc reused from forward()
+            # no torch.no_grad(); ob_loss flows through encoder to learn observation dynamics
             if T >= 2:
-                with torch.no_grad():
-                    ob_enc = self.model.encoder(observations)  # (B,T,enc_dim), reshape handled internally
-                targ_ob = ob_enc[:, 1:, :].detach()
+                targ_ob = ob_enc[:, 1:, :]
                 pred_ob = ob_preds[:, :-1, :]
                 valid_next = mask[:, 1:].bool()
                 loss_ob = (

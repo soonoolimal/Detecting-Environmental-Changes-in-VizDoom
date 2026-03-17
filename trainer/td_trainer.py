@@ -86,14 +86,14 @@ class TDTrainer(BaseTrainer):
                     valid_labels_batch = labels[valid]
 
                     # Per-batch predicted class distribution
-                    self.writer.add_scalars("TD_Val/pred_class_dist", {
+                    self.writer.add_scalars("Td_val/pred_class_dist", {
                         "vanilla": int((valid_preds == 0).sum()),
                         "ob_shifted": int((valid_preds == 1).sum()),
                         "rew_shifted": int((valid_preds == 2).sum()),
                     }, global_step)
 
                     # Per-batch true class distribution
-                    self.writer.add_scalars("TD_Val/true_class_dist", {
+                    self.writer.add_scalars("Td_val/true_class_dist", {
                         "vanilla": int((valid_labels_batch == 0).sum()),
                         "ob_shifted": int((valid_labels_batch == 1).sum()),
                         "rew_shifted": int((valid_labels_batch == 2).sum()),
@@ -101,7 +101,7 @@ class TDTrainer(BaseTrainer):
 
                     # Per-batch shift flag
                     shift_flag = TaskDetector.detect_shift(logits, mask, omega=self.omega)
-                    self.writer.add_scalar("TD_Val/shift_flag", int(shift_flag), global_step)
+                    self.writer.add_scalar("Td_val/shift_flag", int(shift_flag), global_step)
 
         val_loss = total_loss / max(steps, 1)
         self._last_val_acc = total_correct / max(total_valid_steps, 1) * 100

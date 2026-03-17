@@ -1,4 +1,5 @@
 import os
+import gc
 import argparse
 
 import torch
@@ -17,8 +18,8 @@ def add_args():
     p.add_argument("-env", "--env_name", type=str, default="DefendLine")
     p.add_argument("-exp", "--exp_name", type=str, default="default")
     p.add_argument("--gamma", type=float, default=1.0)
-    p.add_argument("--train_ratio", type=float, default=0.8)
-    p.add_argument("--valid_ratio", type=float, default=0.1)
+    p.add_argument("--train_ratio", type=float, default=0.7)
+    p.add_argument("--valid_ratio", type=float, default=0.2)
     p.add_argument("--omega", type=float, default=0.5)
     
     p.add_argument("--use_ae", action="store_true", default=False)
@@ -69,14 +70,14 @@ def add_args():
 
     # Decision Transformer training
     p.add_argument("--dt_epochs", type=int, default=30)
-    p.add_argument("--dt_lr", type=float, default=1e-4)
+    p.add_argument("--dt_lr", type=float, default=3e-5)
     p.add_argument("--dt_weight_decay", type=float, default=1e-4)
     p.add_argument("--dt_grad_clip", type=float, default=1.0)
     p.add_argument("--dt_patience", type=int, default=10)
     p.add_argument("--scale_grad", action="store_true", default=False)
-    p.add_argument("--ac_loss_w", type=float, default=1.0)
+    p.add_argument("--ac_loss_w", type=float, default=0.5)
     p.add_argument("--rtg_loss_w", type=float, default=1.0)
-    p.add_argument("--ob_loss_w", type=float, default=0.5)
+    p.add_argument("--ob_loss_w", type=float, default=2.0)
 
     # Task Detector training
     p.add_argument("--td_epochs", type=int, default=20)
@@ -107,7 +108,7 @@ def main():
     ds_van, ds_ob, ds_rew = h5ds.load_datasets(data_dir, env_name, exp_name, args.gamma)
 
     van_train, van_valid, van_test = h5ds.split_dataset(ds_van, args.train_ratio, args.valid_ratio)
-    ob_train,  ob_valid,  ob_test  = h5ds.split_dataset(ds_ob,  args.train_ratio, args.valid_ratio)
+    ob_train, ob_valid, ob_test = h5ds.split_dataset(ds_ob, args.train_ratio, args.valid_ratio)
     rew_train, rew_valid, rew_test = h5ds.split_dataset(ds_rew, args.train_ratio, args.valid_ratio)
 
     ds_train = h5ds.merge_dataset([van_train, ob_train, rew_train])
@@ -155,15 +156,20 @@ def main():
                 patience=args.ae_patience,
             )
             ae_trainer.pretrain(ae_train_loader, ae_valid_loader, epochs=args.ae_epochs)
+            del ae_train_loader, ae_valid_loader, ae_trainer
+            gc.collect()
 
         enc.load_backbone_from(ae.backbone)
         enc.freeze(only_backbone=True)
+        del ae
+        gc.collect()
 
     # ===================================
     # Build & Train Decision Transformer
     # ===================================
     dt = DecisionTransformer(
-        enc, n_actions,
+        encoder=enc,
+        n_actions=n_actions,
         hidden_size=args.hidden_size,
         seq_len=args.seq_len,
         max_ep_len=args.max_ep_len,
@@ -181,17 +187,20 @@ def main():
         dt.load_state_dict(ckpt["model_state_dict"])
     else:
         dt_train_loader = tdl.make_dt_dataloader(
-            ds_train, args.seq_len,
+            ds_train,
+            seq_len=args.seq_len,
             batch_size=args.dt_batch_size,
             num_workers=args.dt_num_workers,
         )
         dt_valid_loader = tdl.make_dt_dataloader(
-            ds_valid, args.seq_len,
+            ds_valid,
+            seq_len=args.seq_len,
             batch_size=args.dt_batch_size,
             num_workers=args.dt_num_workers,
         )
         dt_trainer = DTTrainer(
-            dt, device,
+            dt,
+            device=device,
             env_name=env_name,
             exp_name=exp_name,
             writer=writer,
@@ -205,6 +214,10 @@ def main():
             ob_loss_w=args.ob_loss_w,
         )
         dt_trainer.train(dt_train_loader, dt_valid_loader, epochs=args.dt_epochs)
+        
+        del dt_train_loader, dt_valid_loader, dt_trainer
+        gc.collect()
+        torch.cuda.empty_cache()
 
     # ============================
     # Build & Train Task Detector
@@ -217,17 +230,20 @@ def main():
     )
 
     td_train_loader = tdl.make_td_dataloader(
-        [van_train, ob_train, rew_train], args.seq_len,
+        datasets=[van_train, ob_train, rew_train],
+        seq_len=args.seq_len,
         batch_size=args.td_batch_size,
         num_workers=args.td_num_workers,
     )
     td_valid_loader = tdl.make_td_dataloader(
-        [van_valid, ob_valid, rew_valid], args.seq_len,
+        datasets=[van_valid, ob_valid, rew_valid],
+        seq_len=args.seq_len,
         batch_size=args.td_batch_size,
         num_workers=args.td_num_workers,
     )
     td_trainer = TDTrainer(
-        td, device,
+        td,
+        device=device,
         env_name=env_name,
         exp_name=exp_name,
         writer=writer,
@@ -238,6 +254,9 @@ def main():
         patience=args.td_patience,
     )
     td_trainer.train(td_train_loader, td_valid_loader, epochs=args.td_epochs)
+    
+    del td_train_loader, td_valid_loader
+    gc.collect()
 
     # ===================
     # Test Task Detector
@@ -246,7 +265,8 @@ def main():
     td.load_state_dict(ckpt["model_state_dict"])
 
     td_test_loader = tdl.make_td_dataloader(
-        [van_test, ob_test, rew_test], args.seq_len,
+        datasets=[van_test, ob_test, rew_test],
+        seq_len=args.seq_len,
         batch_size=args.td_batch_size,
         shuffle=False,
         num_workers=args.td_num_workers,
