@@ -17,7 +17,8 @@ def add_args():
 
     # General
     p.add_argument("-env", "--env_name", type=str, default="DefendLine")
-    p.add_argument("-exp", "--exp_name", type=str, default="default")
+    p.add_argument("-exp", "--exp_name", type=str, required=True)
+    p.add_argument("-ds", "--ds_name", type=str, required=True)
     p.add_argument("--gamma", type=float, default=1.0)
     p.add_argument("--train_ratio", type=float, default=0.7)
     p.add_argument("--valid_ratio", type=float, default=0.2)
@@ -26,6 +27,7 @@ def add_args():
     p.add_argument("--use_ae", action="store_true", default=False)
     p.add_argument("--ae_pretrained", action="store_true", default=False)
     p.add_argument("--dt_pretrained", action="store_true", default=False)
+    p.add_argument("--pretrained_dir", type=str, default=None)
 
     # Encoder
     p.add_argument("--enc_in_channels", type=int, default=3)
@@ -92,22 +94,33 @@ def add_args():
 def main():
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
     args = add_args().parse_args()
 
     env_name = args.env_name
     exp_name = args.exp_name
+    ds_name = args.ds_name
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    data_dir = os.path.join(os.getcwd(), "data", "datasets")
-    model_dir = os.path.join(os.getcwd(), "model", "pretrained", f"{env_name}_{exp_name}")
-    log_dir = os.path.join(os.getcwd(), "runs", f"{env_name}_{exp_name}_{timestamp}")
+    _id = f"{env_name}_{exp_name}_{timestamp}"
+    _base_dir = os.path.join(os.getcwd(), "model", "pretrained")
+    
+    if (args.ae_pretrained or args.dt_pretrained) and args.pretrained_dir is None:
+        raise ValueError(
+            "--pretrained_dir must be specified when --ae_pretrained or --dt_pretrained is set."
+        )
+    load_dir = args.pretrained_dir or os.path.join(_base_dir, _id)  # ae, dt
+    model_dir = os.path.join(_base_dir, _id)  # td
+    
+    log_dir = os.path.join(os.getcwd(), "runs", _id)
     writer = SummaryWriter(log_dir=log_dir)
+    
+    data_dir = os.path.join(os.getcwd(), "data", "datasets")
 
     # =============
     # Load Dataset
     # =============
-    ds_van, ds_ob, ds_rew = h5ds.load_datasets(data_dir, env_name, exp_name, args.gamma)
+    ds_van, ds_ob, ds_rew = h5ds.load_datasets(data_dir, env_name, ds_name, args.gamma)
 
     van_train, van_valid, van_test = h5ds.split_dataset(ds_van, args.train_ratio, args.valid_ratio)
     ob_train, ob_valid, ob_test = h5ds.split_dataset(ds_ob, args.train_ratio, args.valid_ratio)
@@ -130,7 +143,7 @@ def main():
             feat_channels=args.enc_out_channels,
         )
         if args.ae_pretrained:
-            ckpt = torch.load(os.path.join(model_dir, "best_ae.pt"), map_location=device)
+            ckpt = torch.load(os.path.join(load_dir, "best_ae.pt"), map_location=device)
             ae.load_state_dict(ckpt["model_state_dict"])
         else:
             ae_train_loader = tdl.make_ae_dataloader(
@@ -144,15 +157,17 @@ def main():
                 num_workers=args.ae_num_workers,
             )
             ae_trainer = AETrainer(
-                ae, device,
+                ae,
+                device=device,
                 env_name=env_name,
                 exp_name=exp_name,
-                writer=writer,
+                timestamp=timestamp,
                 denoise_std=args.ae_denoise_std,
                 lr=args.ae_lr,
                 weight_decay=args.ae_weight_decay,
                 grad_clip=args.ae_grad_clip,
                 patience=args.ae_patience,
+                writer=writer,
             )
             ae_trainer.pretrain(ae_train_loader, ae_valid_loader, epochs=args.ae_epochs)
             del ae_train_loader, ae_valid_loader, ae_trainer
@@ -182,7 +197,7 @@ def main():
     )
 
     if args.dt_pretrained:
-        ckpt = torch.load(os.path.join(model_dir, "best_dt.pt"), map_location=device)
+        ckpt = torch.load(os.path.join(load_dir, "best_dt.pt"), map_location=device)
         dt.load_state_dict(ckpt["model_state_dict"])
     else:
         dt_train_loader = tdl.make_dt_dataloader(
@@ -202,7 +217,7 @@ def main():
             device=device,
             env_name=env_name,
             exp_name=exp_name,
-            writer=writer,
+            timestamp=timestamp,
             lr=args.dt_lr,
             weight_decay=args.dt_weight_decay,
             grad_clip=args.dt_grad_clip,
@@ -210,6 +225,7 @@ def main():
             scale_grad=args.scale_grad,
             ac_loss_w=args.ac_loss_w,
             rtg_loss_w=args.rtg_loss_w,
+            writer=writer,
         )
         dt_trainer.train(dt_train_loader, dt_valid_loader, epochs=args.dt_epochs)
         
@@ -244,12 +260,13 @@ def main():
         device=device,
         env_name=env_name,
         exp_name=exp_name,
-        writer=writer,
+        timestamp=timestamp,
         omega=args.omega,
         lr=args.td_lr,
         weight_decay=args.td_weight_decay,
         grad_clip=args.td_grad_clip,
         patience=args.td_patience,
+        writer=writer,
     )
     td_trainer.train(td_train_loader, td_valid_loader, epochs=args.td_epochs)
     
@@ -262,7 +279,7 @@ def main():
     ckpt = torch.load(os.path.join(model_dir, "best_td.pt"), map_location=device)
     td.load_state_dict(ckpt["model_state_dict"])
 
-    td_test_loader = tdl.make_td_dataloader(
+    TD_test_loader = tdl.make_td_dataloader(
         datasets=[van_test, ob_test, rew_test],
         seq_len=args.seq_len,
         batch_size=args.td_batch_size,
@@ -270,7 +287,7 @@ def main():
         num_workers=args.td_num_workers,
     )
 
-    td_trainer.test(td_test_loader, num_classes=args.num_classes)
+    td_trainer.test(TD_test_loader, num_classes=args.num_classes)
     writer.close()
 
 

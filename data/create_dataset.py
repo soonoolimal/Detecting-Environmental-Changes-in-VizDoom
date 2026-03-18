@@ -11,21 +11,22 @@ from data.data_utils import SCN_TO_CFG
 def add_args():
     p = argparse.ArgumentParser()
     
-    p.add_argument("--scn_to_cfg", type=str, default="default")
     p.add_argument("-env", "--env_name", type=str, default="DefendLine")
     p.add_argument("-shift", "--shift_type", type=str, choices=["vanilla", "observation", "reward", "all"], default="all")
-    p.add_argument("-exp", "--exp_name", type=str, default="default")
+    p.add_argument("-exp", "--exp_name", type=str, required=True)
     
     p.add_argument("-s", "--seed", type=int, default=42)
     p.add_argument("-lv", "--level", type=int, default=3)
-    p.add_argument("-n", "--num_episodes", type=int, default=3)
+    p.add_argument("-n", "--num_episodes", type=int, default=200)
     p.add_argument("-tout", "--timeout", type=int, default=None)
     p.add_argument("--resize", type=int, default=84)
     
     p.add_argument("--save_obs_as_uint8", dest="save_obs_as_uint8", action="store_true", default=True)
     p.add_argument("--no_save_obs_as_uint8", dest="save_obs_as_uint8", action="store_false")
     
-    p.add_argument("-sf", "--video_save_freq", type=int, default=10)
+    p.add_argument("-vsf", "--video_save_freq", type=int, default=20)
+    
+    p.add_argument("--scn_to_cfg", type=str, default="default")
     
     return p
 

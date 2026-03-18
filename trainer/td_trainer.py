@@ -1,11 +1,12 @@
+from tqdm import tqdm
+
 import torch
 import torch.nn.functional as F
 from torch.nn.utils import clip_grad_norm_
 
-from tqdm import tqdm
-
 from model.task_detector import TaskDetector
 from trainer.base_trainer import BaseTrainer
+from trainer import trainer_utils as tru
 
 
 class TDTrainer(BaseTrainer):
@@ -67,8 +68,9 @@ class TDTrainer(BaseTrainer):
         total_loss = 0.0
         total_correct, total_valid_steps, steps = 0, 0, 0
         num_batches = len(valid_loader)
+        confusion = torch.zeros(self.model.num_classes, self.model.num_classes, dtype=torch.long)
         with torch.no_grad():
-            pbar = tqdm(valid_loader, total=num_batches, leave=False, desc="[Eval TSD]")
+            pbar = tqdm(valid_loader, total=num_batches, leave=False, desc="[Eval TD]")
             for batch_idx, batch in enumerate(pbar):
                 loss, logits, labels, mask = self._compute_loss(batch)
                 total_loss += float(loss)
@@ -76,37 +78,31 @@ class TDTrainer(BaseTrainer):
 
                 preds = logits.argmax(dim=-1)  # (B,T)
                 valid = mask.bool()
-                total_correct += int((preds[valid] == labels[valid]).sum())
+                valid_preds = preds[valid]
+                valid_labels_batch = labels[valid]
+                total_correct += int((valid_preds == valid_labels_batch).sum())
                 total_valid_steps += int(valid.sum())
+
+                num_classes = self.model.num_classes
+                for t in range(num_classes):
+                    for p in range(num_classes):
+                        confusion[t, p] += int(
+                            ((valid_labels_batch == t) & (valid_preds == p)).sum()
+                        )
 
                 if self.writer is not None:
                     global_step = (epoch - 1) * num_batches + batch_idx
-
-                    valid_preds = preds[valid]
-                    valid_labels_batch = labels[valid]
-
-                    # Per-batch predicted class distribution
-                    self.writer.add_scalars("Td_val/pred_class_dist", {
-                        "vanilla": int((valid_preds == 0).sum()),
-                        "ob_shifted": int((valid_preds == 1).sum()),
-                        "rew_shifted": int((valid_preds == 2).sum()),
-                    }, global_step)
-
-                    # Per-batch true class distribution
-                    self.writer.add_scalars("Td_val/true_class_dist", {
-                        "vanilla": int((valid_labels_batch == 0).sum()),
-                        "ob_shifted": int((valid_labels_batch == 1).sum()),
-                        "rew_shifted": int((valid_labels_batch == 2).sum()),
-                    }, global_step)
-
-                    # Per-batch shift flag
                     shift_flag = TaskDetector.detect_shift(logits, mask, omega=self.omega)
-                    self.writer.add_scalar("Td_val/shift_flag", int(shift_flag), global_step)
+                    self.writer.add_scalar("TD_val/shift_flag", int(shift_flag), global_step)
 
         val_loss = total_loss / max(steps, 1)
         self._last_val_acc = total_correct / max(total_valid_steps, 1) * 100
         print(f"val_acc={self._last_val_acc:.2f}%")
-        
+
+        if self.writer is not None:
+            fig = tru.confusion_matrix_figure(confusion, tru.CLASS_NAMES)
+            self.writer.add_image("TD_val/confusion_matrix", tru.fig_to_tensor(fig), epoch)
+
         return val_loss
 
     def _log_val(self, epoch: int, val_loss: float):
@@ -129,7 +125,7 @@ class TDTrainer(BaseTrainer):
         confusion = torch.zeros(num_classes, num_classes, dtype=torch.long)
 
         with torch.no_grad():
-            pbar = tqdm(test_loader, total=len(test_loader), leave=False, desc="[Test TSD]")
+            pbar = tqdm(test_loader, total=len(test_loader), leave=False, desc="[Test TD]")
             for batch_idx, batch in enumerate(pbar):
                 loss, logits, labels, mask = self._compute_loss(batch)
                 total_loss += float(loss)
@@ -150,24 +146,9 @@ class TDTrainer(BaseTrainer):
                             ((valid_labels == t) & (valid_preds == p)).sum()
                         )
 
-                # Per-batch logging
                 if self.writer is not None:
-                    # Per-batch predicted class distribution
-                    self.writer.add_scalars("TD_Test/pred_class_dist", {
-                        "vanilla": int((valid_preds == 0).sum()),
-                        "ob_shifted": int((valid_preds == 1).sum()),
-                        "rew_shifted": int((valid_preds == 2).sum()),
-                    }, batch_idx)
-
-                    # Per-batch true class distribution
-                    self.writer.add_scalars("TD_Test/true_class_dist", {
-                        "vanilla": int((valid_labels == 0).sum()),
-                        "ob_shifted": int((valid_labels == 1).sum()),
-                        "rew_shifted": int((valid_labels == 2).sum()),
-                    }, batch_idx)
-
                     shift_flag = TaskDetector.detect_shift(logits, mask, omega=self.omega)
-                    self.writer.add_scalar("TD_Test/shift_flag", int(shift_flag), batch_idx)
+                    self.writer.add_scalar("TD_test/shift_flag", int(shift_flag), batch_idx)
 
         n = max(steps, 1)
         test_loss = total_loss / n
@@ -194,7 +175,9 @@ class TDTrainer(BaseTrainer):
 
         # TensorBoard
         if self.writer is not None:
-            self.writer.add_scalar("TD_Test/loss", test_loss)
-            self.writer.add_scalar("TD_Test/acc", test_acc)
+            self.writer.add_scalar("TD_test/loss", test_loss)
+            self.writer.add_scalar("TD_test/acc", test_acc)
             for name, acc in per_class_acc.items():
-                self.writer.add_scalar(f"TD_Test/acc_{name}", acc)
+                self.writer.add_scalar(f"TD_test/acc_{name}", acc)
+            fig = tru.confusion_matrix_figure(confusion, class_names)
+            self.writer.add_image("TD_test/confusion_matrix", tru.fig_to_tensor(fig))

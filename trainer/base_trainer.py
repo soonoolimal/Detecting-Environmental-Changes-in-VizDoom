@@ -18,6 +18,7 @@ class BaseTrainer(ABC):
         ckpt_name,
         env_name: str,
         exp_name: str,
+        timestamp: str,
         lr: float = 3e-4,
         weight_decay: float = 1e-4,
         grad_clip: float = 1.0,
@@ -32,7 +33,8 @@ class BaseTrainer(ABC):
         self.patience = patience
         self.writer = writer
 
-        self.save_dir = os.path.join(os.getcwd(), "model", "pretrained", f"{env_name}_{exp_name}")
+        self.id = f"{env_name}_{exp_name}"
+        self.save_dir = os.path.join(os.getcwd(), "model", "pretrained", f"{self.id}_{timestamp}")
         self.ckpt_name = ckpt_name
 
         model.to(device)
@@ -133,4 +135,4 @@ class BaseTrainer(ABC):
                     break
 
     def train(self, train_loader, valid_loader, epochs: int):
-        self._run_loop(train_loader, valid_loader, epochs, desc=self.__class__.__name__)
+        self._run_loop(train_loader, valid_loader, epochs, desc=f"{self.id}, {self.__class__.__name__}")
