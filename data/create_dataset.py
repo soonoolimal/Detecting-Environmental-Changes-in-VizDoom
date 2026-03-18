@@ -14,8 +14,8 @@ def add_args():
     p.add_argument("-env", "--env_name", type=str, default="DefendLine")
     p.add_argument("-shift", "--shift_type", type=str, choices=["vanilla", "observation", "reward", "all"], default="all")
     p.add_argument("-exp", "--exp_name", type=str, required=True)
+    p.add_argument("-s", "--seed", type=int, required=True)
     
-    p.add_argument("-s", "--seed", type=int, default=42)
     p.add_argument("-lv", "--level", type=int, default=3)
     p.add_argument("-n", "--num_episodes", type=int, default=200)
     p.add_argument("-tout", "--timeout", type=int, default=None)

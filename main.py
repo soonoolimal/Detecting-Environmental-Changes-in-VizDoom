@@ -1,8 +1,10 @@
 import os
 import gc
 import time
+import random
 import argparse
 
+import numpy as np
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
@@ -12,13 +14,23 @@ from model import ObsAutoEncoder, ObsEncoder, DecisionTransformer, TaskDetector
 from trainer import AETrainer, DTTrainer, TDTrainer
 
 
+def set_seed(seed: int):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
 def add_args():
     p = argparse.ArgumentParser()
 
     # General
     p.add_argument("-env", "--env_name", type=str, default="DefendLine")
     p.add_argument("-exp", "--exp_name", type=str, required=True)
-    p.add_argument("-ds", "--ds_name", type=str, required=True)
+    p.add_argument("-s", "--seed", type=int, required=True)
+    p.add_argument("-ds", "--ds_name", type=str, default="base")
     p.add_argument("--gamma", type=float, default=1.0)
     p.add_argument("--train_ratio", type=float, default=0.7)
     p.add_argument("--valid_ratio", type=float, default=0.2)
@@ -97,25 +109,24 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     args = add_args().parse_args()
+    set_seed(args.seed)
 
     env_name = args.env_name
     exp_name = args.exp_name
     ds_name = args.ds_name
-
-    _id = f"{env_name}_{exp_name}_{timestamp}"
-    _base_dir = os.path.join(os.getcwd(), "model", "pretrained")
     
+    _id = f"{env_name}_{exp_name}_s{args.seed}_{timestamp}"
+    
+    data_dir = os.path.join(os.getcwd(), "data", "datasets")
+    model_dir = os.path.join(os.getcwd(), "model", "pretrained", _id)
     if (args.ae_pretrained or args.dt_pretrained) and args.pretrained_dir is None:
         raise ValueError(
             "--pretrained_dir must be specified when --ae_pretrained or --dt_pretrained is set."
         )
-    load_dir = args.pretrained_dir or os.path.join(_base_dir, _id)  # ae, dt
-    model_dir = os.path.join(_base_dir, _id)  # td
+    load_dir = args.pretrained_dir if args.pretrained_dir else model_dir
     
     log_dir = os.path.join(os.getcwd(), "runs", _id)
     writer = SummaryWriter(log_dir=log_dir)
-    
-    data_dir = os.path.join(os.getcwd(), "data", "datasets")
 
     # =============
     # Load Dataset
@@ -279,7 +290,7 @@ def main():
     ckpt = torch.load(os.path.join(model_dir, "best_td.pt"), map_location=device)
     td.load_state_dict(ckpt["model_state_dict"])
 
-    TD_test_loader = tdl.make_td_dataloader(
+    td_test_loader = tdl.make_td_dataloader(
         datasets=[van_test, ob_test, rew_test],
         seq_len=args.seq_len,
         batch_size=args.td_batch_size,
@@ -287,7 +298,7 @@ def main():
         num_workers=args.td_num_workers,
     )
 
-    td_trainer.test(TD_test_loader, num_classes=args.num_classes)
+    td_trainer.test(td_test_loader, num_classes=args.num_classes)
     writer.close()
 
 
