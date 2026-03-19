@@ -18,15 +18,15 @@ def add_args():
     
     # Game Settings
     p.add_argument("--lv", "--level", dest="level", type=int, default=3)
-    p.add_argument("--n", "--num_episodes", dest="num_episodes", type=int, default=1000)
+    p.add_argument("--n", "--num_episodes", dest="num_episodes", type=int, default=300)
     p.add_argument("--timeout", type=int, default=None)
     p.add_argument("--resize", type=int, default=84)
-    p.add_argument("--frameskip", type=int, default=10)
+    p.add_argument("--frameskip", type=int, default=3)
     
     # Save Options
     p.add_argument("--save_obs_as_uint8", dest="save_obs_as_uint8", action="store_true", default=True)
     p.add_argument("--no_save_obs_as_uint8", dest="save_obs_as_uint8", action="store_false")
-    p.add_argument("--vsf", "--video_save_freq", dest="video_save_freq", type=int, default=100)
+    p.add_argument("--vsf", "--video_save_freq", dest="video_save_freq", type=int, default=30)
 
     return p
 
@@ -36,6 +36,7 @@ def resolve_shift_types(shift_type: str):
 
 
 def resolve_tasks(shift_types: list, rew_obj: str):
+    # TODO: dodger
     # rew_objs = ["tanker", "hunter", "dodger"] if rew_obj == "all" else [rew_obj]
     rew_objs = ["tanker", "hunter"] if rew_obj == "all" else [rew_obj]
     tasks = []

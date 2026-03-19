@@ -74,6 +74,7 @@ class ShiftReward(gym.Wrapper):
         # objective 2: kill monsters
         elif self.rew_obj == "hunter":
             penalty = now_kill == self.kill_log[-1]
+        # TODO: dodger
         # objective 3: evade attacks
         # elif self.rew_obj == "dodger":
         #     penalty = now_hp < self.hp_log[-1]
