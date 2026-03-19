@@ -122,7 +122,7 @@ class RandomAgent:
         if self.timeout is None:
             if game.get_episode_timeout() == 0:
                 raise ValueError(
-                    f"Scenario {self.env_name} has no internal 'episode_timeout'. Pass 'timeout' manually."
+                    f"Scenario {self.env_name} has no internal episode_timeout. Pass 'timeout' manually."
                 )
             else:
                 max_envsteps = game.get_episode_timeout()
