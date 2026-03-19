@@ -7,7 +7,7 @@ import numpy as np
 
 @dataclass
 class HDF5:
-    # E: num_episodes, N = E * timeout
+    # E: num_episodes, N = E * ep_len
     observations: np.ndarray   # (N,C=3,H,W), uint8, to float in __getitem__()
     actions: np.ndarray        # discrete: (N,) continuous: (N,ac_dim)
     rewards: np.ndarray        # (N,)

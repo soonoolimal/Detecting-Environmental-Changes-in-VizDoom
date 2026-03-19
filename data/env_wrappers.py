@@ -5,6 +5,24 @@ import gymnasium as gym
 import vizdoom as vzd
 
 
+class FrameSkip(gym.Wrapper):
+    def __init__(self, env: gym.Env, skip: int):
+        super().__init__(env)
+        if skip < 1:
+            raise ValueError(f"Expected `skip` >= 1, got {skip}.")
+        self._skip = skip
+
+    def step(self, action):
+        next_ob_st, rew, done, trunc, info = self.env.step(action)
+        total_rew = float(rew)
+        
+        for _ in range(self._skip - 1):
+            next_ob_st, rew, done, trunc, info = self.env.step(action)
+            total_rew += float(rew)  # TODO: sum of rewards during raw tics(skip), or only last? (ShiftReward: latter)
+        
+        return next_ob_st, total_rew, done, trunc, info
+
+
 class ShiftReward(gym.Wrapper):
     def __init__(self, env: gym.Env, rew_obj: str):
         super().__init__(env)
@@ -57,9 +75,9 @@ class ShiftReward(gym.Wrapper):
         elif self.rew_obj == "hunter":
             penalty = now_kill == self.kill_log[-1]
         # objective 3: evade attacks
-        elif self.rew_obj == "dodger":
-            penalty = now_hp < self.hp_log[-1]
-        rew = -0.1 if penalty else 0.0
+        # elif self.rew_obj == "dodger":
+        #     penalty = now_hp < self.hp_log[-1]
+        rew = -1.0 if penalty else 0.0
         
         self.hp_log.append(now_hp)
         self.ammo_log.append(now_ammo)

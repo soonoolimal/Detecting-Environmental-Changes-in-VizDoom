@@ -25,6 +25,7 @@ class RandomAgent:
         num_episodes: int = 200,
         timeout: int = None,
         resize: int = 84,
+        frameskip: int = 1,
         save_obs_as_uint8: bool = True,
         video_save_freq: int = 20,
     ):
@@ -50,6 +51,7 @@ class RandomAgent:
         self.num_episodes = num_episodes
         self.timeout = timeout
         self.resize = resize
+        self.frameskip = frameskip
         
         self.save_obs_as_uint8 = save_obs_as_uint8
         self.video_save_freq = video_save_freq
@@ -81,7 +83,11 @@ class RandomAgent:
             env_kwargs["scenario_config_file"] = str(self.custom_scn_cfg_path) + ".cfg"
         
         env = gym.make(env_id, **env_kwargs)
-        
+
+        # Skip Frame
+        if self.frameskip > 1:
+            env = wrappers.FrameSkip(env, skip=self.frameskip)
+
         # Reward-Shifted Task
         if self.shift_type == "reward":
             env = wrappers.ShiftReward(env, self.rew_obj)
@@ -105,6 +111,7 @@ class RandomAgent:
                 video_folder=str(video_folder),
                 name_prefix=self.id,
                 episode_trigger=self.episode_trigger,
+                fps=35 / self.frameskip,
             )
         
         return env
@@ -125,10 +132,12 @@ class RandomAgent:
                     f"Scenario {self.env_name} has no internal episode_timeout. Pass 'timeout' manually."
                 )
             else:
-                max_envsteps = game.get_episode_timeout()
+                raw_timeout = game.get_episode_timeout()
         else:
-            game.set_episode_timeout(self.timeout)
-            max_envsteps = self.timeout
+            raw_timeout = self.timeout
+        game.set_episode_timeout(raw_timeout)
+        
+        max_envsteps = raw_timeout // self.frameskip
             
         # Get Environment Information
         ob_shape, _, ac_dim, ac_dtype, _, _, ac_aux_dim, ac_aux_dtype, n_actions = dtu.get_env_info(env)
