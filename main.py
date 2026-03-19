@@ -131,6 +131,8 @@ def main():
     # =============
     # Load Dataset
     # =============
+    print("Load dataset...")
+    
     ds_van, ds_ob, ds_rew = h5ds.load_datasets(data_dir, env_name, ds_name, args.gamma)
 
     van_train, van_valid, van_test = h5ds.split_dataset(ds_van, args.train_ratio, args.valid_ratio)
@@ -138,6 +140,8 @@ def main():
     rew_train, rew_valid, rew_test = h5ds.split_dataset(ds_rew, args.train_ratio, args.valid_ratio)
 
     n_actions = ds_van.n_actions
+    
+    print("Done")
 
     # ==============
     # Build Encoder
@@ -170,9 +174,7 @@ def main():
             ae_trainer = AETrainer(
                 ae,
                 device=device,
-                env_name=env_name,
-                exp_name=exp_name,
-                timestamp=timestamp,
+                save_dir=model_dir,
                 denoise_std=args.ae_denoise_std,
                 lr=args.ae_lr,
                 weight_decay=args.ae_weight_decay,
@@ -226,9 +228,7 @@ def main():
         dt_trainer = DTTrainer(
             dt,
             device=device,
-            env_name=env_name,
-            exp_name=exp_name,
-            timestamp=timestamp,
+            save_dir=model_dir,
             lr=args.dt_lr,
             weight_decay=args.dt_weight_decay,
             grad_clip=args.dt_grad_clip,
@@ -269,9 +269,7 @@ def main():
     td_trainer = TDTrainer(
         td,
         device=device,
-        env_name=env_name,
-        exp_name=exp_name,
-        timestamp=timestamp,
+        save_dir=model_dir,
         omega=args.omega,
         lr=args.td_lr,
         weight_decay=args.td_weight_decay,

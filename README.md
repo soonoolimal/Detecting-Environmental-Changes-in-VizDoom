@@ -2,7 +2,7 @@
 ```bash
 python3 -m data.create_dataset \
     --env_name DefendLine --exp_name base --seed 0 \
-    --num_episodes 300 --video_save_freq 30
+    --num_episodes 200 --video_save_freq 20
 ```
 
 ### 2. Run
