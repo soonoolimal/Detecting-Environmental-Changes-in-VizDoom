@@ -13,14 +13,8 @@ def add_args():
     p.add_argument("--env", "--env_name", dest="env_name", type=str, default="DefendLine")
     p.add_argument("--exp", "--exp_name", dest="exp_name", type=str, required=True)
     p.add_argument("--seed", type=int, required=True)
-    p.add_argument(
-        "--shift", "--shift_type", dest="shift_type", type=str,
-        choices=["vanilla", "observation", "reward", "all"], default="all"
-    )
-    p.add_argument(
-        "--robj", "--rew_obj", dest="rew_obj", type=str,
-        choices=["tanker", "hunter", "dodger", "all"], default=None
-    )
+    p.add_argument("--shift", "--shift_type", dest="shift_type", type=str, choices=["vanilla", "observation", "reward", "all"], default="all")
+    p.add_argument("--robj", "--rew_obj", dest="rew_obj", type=str, choices=["tanker", "hunter", "dodger", "all"], default=None)
     
     # Game Settings
     p.add_argument("--lv", "--level", dest="level", type=int, default=3)
