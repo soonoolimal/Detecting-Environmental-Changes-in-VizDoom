@@ -25,7 +25,7 @@ class RandomAgent:
         num_episodes: int = 200,
         timeout: int = None,
         resize: int = 84,
-        frameskip: int = 1,
+        frameskip: int = 3,
         save_obs_as_uint8: bool = True,
         video_save_freq: int = 20,
     ):
