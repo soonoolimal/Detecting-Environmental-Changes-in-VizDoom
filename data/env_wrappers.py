@@ -18,7 +18,7 @@ class FrameSkip(gym.Wrapper):
         
         for _ in range(self._skip - 1):
             next_ob_st, rew, done, trunc, info = self.env.step(action)
-            total_rew += float(rew)  # TODO: sum of rewards during raw tics(skip), or only last? (ShiftReward: latter)
+            total_rew += float(rew)
         
         return next_ob_st, total_rew, done, trunc, info
 
@@ -66,7 +66,7 @@ class ShiftReward(gym.Wrapper):
         now_ammo = self.game.get_game_variable(vzd.GameVariable.AMMO2)
         now_kill = self.game.get_game_variable(vzd.GameVariable.KILLCOUNT)
         
-        # Change Entire Objective
+        # Change entire objective
         penalty = False
         # objective 1: long live the agent
         if self.rew_obj == "tanker":

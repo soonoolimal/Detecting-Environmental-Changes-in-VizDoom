@@ -74,7 +74,7 @@ def load_dataset(data_path: str, label: int, gamma: float = 1.0) -> HDF5:
     # Labels: (N,), all the same per timestep within single hdf5 file
     labels = np.full(total_envsteps, label, dtype=np.int64)
     
-    # Termination Indices: (E,)
+    # Termination indices: (E,)
     done_idxs = np.arange(ep_len, total_envsteps + 1, ep_len, dtype=np.int64)
     if num_episodes != len(done_idxs):
         raise ValueError(

@@ -75,30 +75,30 @@ class RandomAgent:
         env_id = "Vizdoom" + self.env_name + "-v1"
         env_kwargs = dict(render_mode="rgb_array")
         
-        # Observation-Shifted Task
+        # Observation-Shifted task
         if self.shift_type == "observation":
             env_kwargs["scenario_config_file"] = str(self.custom_scn_cfg_path) + "_ob_shift.cfg"
-        # Vanilla Task
+        # Vanila task
         else:
             env_kwargs["scenario_config_file"] = str(self.custom_scn_cfg_path) + ".cfg"
         
         env = gym.make(env_id, **env_kwargs)
 
-        # Skip Frame
+        # Skip frame
         if self.frameskip > 1:
             env = wrappers.FrameSkip(env, skip=self.frameskip)
 
-        # Reward-Shifted Task
+        # Reward-Shifted task
         if self.shift_type == "reward":
             env = wrappers.ShiftReward(env, self.rew_obj)
         
-        # Set Doom Skill
+        # Set doom skill
         env.unwrapped.game.set_doom_skill(self.doom_skill)
         
-        # Resize Observation
+        # Resize observation
         env = wrappers.ResizeObservation(env, self.resize)
         
-        # Record (Optional)
+        # Record (optional)
         if self.video_save_freq != -1:
             video_folder = self.video_save_dir / self.id
             if video_folder.exists():
@@ -123,7 +123,7 @@ class RandomAgent:
                 f"Expected `env_name` to be one of {list(self.scn_to_cfg.keys())}, got {self.env_name}."
             )
         
-        # Set Game
+        # Set game
         game: vzd.DoomGame = env.unwrapped.game
         
         if self.timeout is None:
@@ -139,7 +139,7 @@ class RandomAgent:
         
         max_envsteps = raw_timeout // self.frameskip
             
-        # Get Environment Information
+        # Get environment information
         ob_shape, _, ac_dim, ac_dtype, _, _, ac_aux_dim, ac_aux_dtype, n_actions = dtu.get_env_info(env)
         ob_store_dtype = np.dtype("uint8") if self.save_obs_as_uint8 else np.dtype("float32")
         

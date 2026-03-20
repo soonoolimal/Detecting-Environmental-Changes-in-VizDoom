@@ -22,7 +22,7 @@ class E2EDataset(Dataset):
         
         if seq_len > ds.ep_len:
             raise ValueError(
-                f"`seq_len` must be <= ds.ep_len, got seq_len={seq_len} and ds.ep_len={ds.ep_len}."
+                f"Expected `seq_len` <= ds.ep_len, got seq_len={seq_len} and ds.ep_len={ds.ep_len}."
             )
         self.seq_len = seq_len
         self.ep_len = ds.ep_len

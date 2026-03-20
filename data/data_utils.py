@@ -38,24 +38,19 @@ def get_env_info(env: gym.Env):
     ):
         ac = ac_space.spaces["binary"].sample()
         ac_aux = ac_space.spaces["continuous"].sample()
-        
+
         ac_dim, ac_aux_dim = np.atleast_1d(ac).shape[0], ac_aux.shape[0]  # action is vector of ac_dim per timestep
-        ac_dtype, ac_aux_dtype = ac.dtype, ac_aux.dtype
-        
-        # continuous: n_actions == ac_dim
-        n_actions = ac_dim
+        ac_dtype, ac_aux_dtype = ac.dtype, ac_aux.dtype        
+        n_actions = ac_dim           # continuous: n_actions == ac_dim
     elif isinstance(ac_space, gym.spaces.Discrete):
-        ac_dim, ac_aux_dim = 1, None  # action is scalar per timestep
+        ac_dim, ac_aux_dim = 1, None                                      # action is scalar per timestep
         ac_dtype, ac_aux_dtype = np.dtype("int64"), None
-        
-        # binary: number of discrete actions
-        n_actions = int(ac_space.n)
+        n_actions = int(ac_space.n)  # binary: number of discrete actions
     else:
         ac = ac_space.sample()
         
         ac_dim, ac_aux_dim = np.atleast_1d(ac).shape[0], None
         ac_dtype, ac_aux_dtype =  ac.dtype, None
-        
         n_actions = ac_dim
 
     return ob_shape, ob_dtype, ac_dim, ac_dtype, st_shape, st_dtype, ac_aux_dim, ac_aux_dtype, n_actions

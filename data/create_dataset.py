@@ -16,14 +16,14 @@ def add_args():
     p.add_argument("--shift", "--shift_type", dest="shift_type", type=str, choices=["vanilla", "observation", "reward", "all"], default="all")
     p.add_argument("--robj", "--rew_obj", dest="rew_obj", type=str, choices=["tanker", "hunter", "dodger", "all"], default=None)
     
-    # Game Settings
+    # Game settings
     p.add_argument("--lv", "--level", dest="level", type=int, default=3)
     p.add_argument("--n", "--num_episodes", dest="num_episodes", type=int, default=300)
     p.add_argument("--timeout", type=int, default=None)
     p.add_argument("--resize", type=int, default=84)
     p.add_argument("--frameskip", type=int, default=3)
     
-    # Save Options
+    # Save options
     p.add_argument("--save_obs_as_uint8", dest="save_obs_as_uint8", action="store_true", default=True)
     p.add_argument("--no_save_obs_as_uint8", dest="save_obs_as_uint8", action="store_false")
     p.add_argument("--vsf", "--video_save_freq", dest="video_save_freq", type=int, default=30)
