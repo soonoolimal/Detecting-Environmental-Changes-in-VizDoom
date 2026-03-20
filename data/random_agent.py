@@ -55,7 +55,7 @@ class RandomAgent:
         
         self.save_obs_as_uint8 = save_obs_as_uint8
         self.video_save_freq = video_save_freq
-        if video_save_freq == -1:  # disable video saving
+        if video_save_freq == -1:   # disable video saving
             self.episode_trigger = lambda ep: False
         elif video_save_freq == 0:  # save only very first episode as video
             self.episode_trigger = lambda ep: ep == 0
