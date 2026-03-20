@@ -37,7 +37,8 @@ class E2EDataset(Dataset):
                 - rewards:       (T,1)
                 - returns_to_go: (T,1)
                 - timesteps:     (T,)
-                - mask:          (T,), all ones, i.e., no padding needed, since all trajectories have same length
+                - mask:          (T,)
+                    all ones, i.e., no padding needed, since all trajectories have same length
                 - labels:        (T,)
         """
         num_windows = self.ep_len - self.seq_len + 1
