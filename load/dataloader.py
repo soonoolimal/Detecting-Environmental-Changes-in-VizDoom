@@ -32,14 +32,13 @@ class E2EDataset(Dataset):
         """
         Returns:
             dict: single input sequence of length T
-                - observations:  (T,C=3,H,W)
-                - actions:       (T,)
-                - rewards:       (T,1)
-                - returns_to_go: (T,1)
-                - timesteps:     (T,)
-                - mask:          (T,)
-                    all ones, i.e., no padding needed, since all trajectories have same length
-                - labels:        (T,)
+                - observations  (T,C=3,H,W)
+                - actions       (T,)
+                - rewards       (T,1)
+                - returns_to_go (T,1)
+                - timesteps     (T,)
+                - mask          (T,): all ones, i.e., no padding needed, since all trajectories have same length
+                - labels        (T,)
         """
         num_windows = self.ep_len - self.seq_len + 1
         ep_start = (idx // num_windows) * self.ep_len
