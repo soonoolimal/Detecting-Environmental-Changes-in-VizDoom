@@ -27,7 +27,7 @@ def get_env_info(env: gym.Env):
         ("screen" in ob_space.spaces) and ("gamevariables" in ob_space.spaces)
     ):
         raise TypeError(
-            "env.observation_space must be gym.spaces.Dict with keys 'screen' and 'gamevariables'"
+            "`env.observation_space` must be gym.spaces.Dict with keys 'screen' and 'gamevariables'"
         )
     ob = ob_space.spaces["screen"].sample()
     st = ob_space.spaces["gamevariables"].sample()

@@ -99,7 +99,6 @@ class RandomAgent:
         # Wrapper 3: annotate video (original resolution)
         # Wrapper 4: resize observation
         # Wrapper 5: record video
-        # video_save_freq == -1: no recording
         if self.video_save_freq == -1:
             env = wrappers.ResizeObservation(env, self.resize)
             return env
