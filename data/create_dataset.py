@@ -35,10 +35,12 @@ def add_args():
     p.add_argument("--no_save_ob_as_uint8", dest="save_ob_as_uint8", action="store_false", default=True)
     p.add_argument("--vsf", "--video_save_freq", dest="video_save_freq", type=int, default=50)
 
-    return p.set_defaults(
+    p.set_defaults(
         shift_type=["vanilla", "observation", "reward"],
         rew_obj=None,
     )
+
+    return p
 
 
 if __name__ == "__main__":
